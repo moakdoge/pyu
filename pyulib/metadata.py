@@ -1,8 +1,9 @@
-from . import files, packageutils
-import time, json
+from . import files, packageutils, other
+import time, json, shutil
 from pathlib import Path
 from dataclasses import dataclass
 from .version import PackageVersion
+
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,29 @@ class Package:
             self._meta["author"]
         )
     
+    @classmethod
+    def generate_package(cls, folder: Path):
+        from . import packageutils
+        if not folder.exists():
+            raise FileNotFoundError(f"Folder {folder.absolute()} does not exist! Cannot make package.")
+        with files.tempfile("/tmp") as f:
+            zip_path = f.name + ".zip"
+            v= folder / "VERSION"
+            n = folder / "metadata.json"
+
+            if not v.exists() and n.exists():
+                ver = json.loads(n.read_text()).get("version", None)
+                if ver:
+                    with open(folder / "VERSION", "w") as m:
+                        m.write(ver)
+            if not v.exists() or not n.exists():
+                raise FileNotFoundError(f"Invalid package!")
+            ver = PackageVersion.from_str(v.read_text())
+            name = json.loads(n.read_text())["name"]
+            files.zipfolder(folder, zip_path)
+            shutil.copyfile(zip_path, Path(packageutils.PACKAGE_DIR / f"{other.beautify_name(name)}-{str(ver)}.zip"))
+        packageutils.generate_cache()
+
     @property
     def version(self) -> PackageVersion:
         return self._metadata.version

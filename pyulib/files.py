@@ -13,22 +13,27 @@ def tempfile(path: str | Path, *args, **kwargs):
 def zipfolder(folder: Path | str, save_file: Path | None = None) -> bytes:
     if isinstance(folder, str):
         folder = Path(folder)
+
+    if isinstance(save_file, str):
+        save_file = Path(save_file)
     if not folder.exists():
         raise FileNotFoundError(f"Folder {folder.absolute()} not found!")
+
     if save_file:
-        with zipfile.ZipFile(save_file, "w") as z: 
+        with zipfile.ZipFile(save_file, "w", compression=zipfile.ZIP_DEFLATED) as z:
             for f in folder.rglob("*"):
                 if f.is_file():
                     z.write(f, f.relative_to(folder))
         return save_file.read_bytes()
-    else:
-        with tempfile(f"{folder.name}.tmp.zip") as m:
-            with zipfile.ZipFile(m.file, "w") as z:
-                for f in folder.rglob("*"):
-                    if f.is_file():
-                        z.write(f, f.relative_to(folder))
-            with open(m, "rb") as k:
-                return k.read()
+
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        for f in folder.rglob("*"):
+            if f.is_file():
+                z.write(f, f.relative_to(folder))
+
+    return buffer.getvalue()
             
 def tempfolder():
     return tmpfle.mkdtemp()

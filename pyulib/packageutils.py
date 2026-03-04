@@ -20,6 +20,7 @@ def generate_cache():
 def load_cache():
     if not (PACKAGE_DIR / "cache.json").exists():
         generate_cache()
+
     with open(PACKAGE_DIR / "cache.json", "r") as file:
         return json.loads(file.read())
     
