@@ -10,8 +10,5 @@ if __name__ == "__main__":
         metadata.Package.generate_package(folder)
     
     #attempt to find
-    p = metadata.Package("Example Library")
-    print(p.version)
-    k = metadata.Package("Example Library", version="1.0.0")
-    print(k.version)
+    print(metadata.packageutils.find_depends("Library3"))
     #uvicorn.run(app, host="127.0.0.1", port=5000)
