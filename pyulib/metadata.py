@@ -13,8 +13,10 @@ class PackageMetadata:
     author: str
 
 class Package:
-    def __init__(self, package: str):
-        file = packageutils.locate_package(package)
+    def __init__(self, package: str, version: str | PackageVersion | None = None):
+        if isinstance(version, str):
+            version = PackageVersion.from_str(version)
+        file = packageutils.locate_package(package, version=version)
         if not file:
             raise FileNotFoundError(f"{package} not found!")
         self._file = file

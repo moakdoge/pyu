@@ -26,6 +26,7 @@ def load_cache():
     
 def locate_package(package_name: str, version: PackageVersion | None = None) -> Path | None:
     cached = load_cache()
+    last: tuple[Path | None, PackageVersion | None] = (None, None)
     for zipped, data in cached.items():
         contents = data["version"]
         name = data["name"]
@@ -37,7 +38,12 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
             v = PackageVersion.from_str(contents)
             if version == v:
                 return Path(PACKAGE_DIR / zipped)
-        return Path(PACKAGE_DIR / zipped)
-    return None
+        if last != (None, None):
+            if PackageVersion.from_str(contents) > last[1]:
+                last = (zipped, PackageVersion.from_str(contents))
+        else:
+            last = (zipped, PackageVersion.from_str(contents))
+        
+    return Path(PACKAGE_DIR / last[0]) # pyright: ignore[reportOperatorIssue]
 
                 

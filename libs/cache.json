@@ -2,5 +2,9 @@
   "ExampleLibrary-1.0.0.zip": {
     "name": "Example Library",
     "version": "1.0.0"
+  },
+  "ExampleLibrary-1.4.3.zip": {
+    "name": "Example Library",
+    "version": "1.4.3"
   }
 }
