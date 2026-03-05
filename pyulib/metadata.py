@@ -48,7 +48,7 @@ class Package:
         
         with files.tempfile("/tmp") as f:
             zip_path = f.name + ".zip"
-            v= tmpfolder / "VERSION"
+            v = tmpfolder / "VERSION"
             n = tmpfolder / "metadata.json"
 
             if not v.exists() and n.exists():
