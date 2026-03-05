@@ -8,7 +8,8 @@
     "name": "Library3",
     "version": "1.4.3",
     "depends": {
-      "Library2": ">=1.0.0"
+      "Library2": ">=1.0.0",
+      "Example Library": ">=1.0.0"
     }
   },
   "Library2-1.4.3.zip": {

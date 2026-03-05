@@ -1,5 +1,8 @@
 from pathlib import Path
+import shutil
 import zipfile, json, re
+
+from pyulib import files, other
 from .version import PackageVersion
 
 PACKAGE_DIR = Path("/home/moakdoge/Desktop/pyu/server/libs")
@@ -29,7 +32,7 @@ def find_depends(package: str, ver_prov: PackageVersion | None = None):
     '''TAKES IN A PACKAGE NAME!!'''
     from .files import ZipExtractor
     depends = set()
-    dps = set()
+    dps = {}
     cached = load_cache()
     comped = re.compile(r'^(>=|<=|>|<|=)?\s*([0-9]+(?:\.[0-9]+)*)')
     pkg = locate_package(package)
@@ -76,7 +79,12 @@ def find_depends(package: str, ver_prov: PackageVersion | None = None):
                         break
                 case _:
                     raise Exception("Invalid operator!")
-        dps.add((lib, version))
+        if lib in dps:
+            if dps[lib] != str(version):
+                raise NotImplementedError("Multiple versions of the same package are unsupporteD!")
+        else:
+            dps[lib]=str(version)
+
         dps.update(find_depends(lib, version)) # type: ignore
     return dps
 
@@ -107,4 +115,28 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
 
     return PACKAGE_DIR / newest[0]
 
-                
+
+def zip_packages(packages: dict[str, str], output_folder: Path):
+    tmpfolder = Path(files.tempfolder())
+    name=""
+    for package, ver in packages.items():
+        version_number = PackageVersion.from_str(ver)
+        located_package: Path | None = locate_package(package, version=version_number)
+        if located_package:
+            shutil.copyfile(located_package.absolute(), tmpfolder / located_package.name)
+        else:
+            raise FileNotFoundError(f"Package {package} (v{ver}) not found!")
+        name += other.hash(package) + other.hash(ver)
+
+    name = other.hash(name)
+    with open(tmpfolder / "packages.json", "w") as f:
+        import datetime
+        metadata = {
+            "hash": name,
+            "created_on": datetime.datetime.now().isoformat(),
+            "package_count": len(packages.keys()),
+            "packages": dict(packages.items())
+        }
+        f.write(json.dumps(metadata, indent=2)) 
+    
+    files.zipfolder(tmpfolder,output_folder / f"bundle-{name}.zip")
