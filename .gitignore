@@ -3,6 +3,4 @@ __pycache__/**
 *.pyc
 tmp/**
 tmp
-libs/**
-libs
-libs/*
+libs/
