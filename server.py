@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 
 from pyulib import metadata
+from pyulib.version import PackageVersion
 
 app = FastAPI()
 
@@ -48,10 +49,41 @@ def _make_bundle_zip(package_name: str) -> Path:
         raise HTTPException(status_code=500, detail="bundle zip not produced")
     return zips[0]
 
+def _locate_single_zip(name: str, v: str | None) -> Path:
+    if v:
+        pv = PackageVersion.from_str(v)
+        p = metadata.packageutils.locate_package(name, pv)
+    else:
+        p = metadata.packageutils.locate_package(name, None)
+
+    if not p:
+        raise HTTPException(status_code=404, detail="package not found")
+    zp = Path(p).resolve()
+    if not zp.exists():
+        raise HTTPException(status_code=404, detail="package file missing")
+    return zp
 
 @app.get("/health")
 def health():
     return {"ok": True}
+
+def _bundle_zip(name: str, v: str | None) -> Path:
+    if v:
+        raise HTTPException(status_code=400, detail="version not supported with depends=1 yet")
+
+    depends = metadata.packageutils.find_depends(name)
+    if not depends:
+        raise HTTPException(status_code=404, detail="package not found")
+
+    out_dir = CACHE_DIR / f"bundle_{name}_{int(time.time() * 1000)}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    metadata.packageutils.zip_packages(depends, out_dir)
+
+    zips = sorted(out_dir.glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not zips:
+        raise HTTPException(status_code=500, detail="bundle zip not produced")
+    return zips[0]
 
 
 @app.get("/packages/{name}/depends")
@@ -65,41 +97,21 @@ def depends(name: str):
 
 
 @app.get("/packages/{name}/download")
-def download(name: str):
-    name = _safe_name(name)
-    zip_path = _make_bundle_zip(name)
-    return FileResponse(
-        path=str(zip_path),
-        media_type="application/zip",
-        filename=zip_path.name,
-    )
-
-
-@app.get("/packages/{name}/download-one")
-def download_one(
+def download(
     name: str,
-    version: str = Query(default=""),
+    depends: int = Query(default=1, ge=0, le=1),
+    version: str | None = Query(default=None),
 ):
     name = _safe_name(name)
     _ensure_test_packages_built()
 
-    if version:
-        ver = version.strip()
-        target = metadata.packageutils.locate_package(name, metadata.version.PackageVersion.from_str(ver))
-        if not target:
-            raise HTTPException(status_code=404, detail="package version not found")
-        p = Path(target).resolve()
-        if not p.exists():
-            raise HTTPException(status_code=404, detail="package file missing")
-        return FileResponse(path=str(p), media_type="application/zip", filename=p.name)
+    if depends == 0:
+        zip_path = _locate_single_zip(name, version)
+        return FileResponse(path=str(zip_path), media_type="application/zip", filename=zip_path.name)
 
-    target = metadata.packageutils.locate_package(name, None)
-    if not target:
-        raise HTTPException(status_code=404, detail="package not found")
-    p = Path(target).resolve()
-    if not p.exists():
-        raise HTTPException(status_code=404, detail="package file missing")
-    return FileResponse(path=str(p), media_type="application/zip", filename=p.name)
+    zip_path = _bundle_zip(name, version)
+    return FileResponse(path=str(zip_path), media_type="application/zip", filename=zip_path.name)
+
 
 
 if __name__ == "__main__":
