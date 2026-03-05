@@ -117,7 +117,7 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
     return PACKAGE_DIR / newest[0]
 
 
-def zip_packages(packages: dict[str, str], output_folder: Path):
+def zip_packages(packages: dict[str, str], output_folder: Path) -> Path:
     tmpfolder = Path(files.tempfolder())
     name=""
     for package, ver in packages.items():
@@ -141,3 +141,4 @@ def zip_packages(packages: dict[str, str], output_folder: Path):
         f.write(json.dumps(metadata, indent=2)) 
     
     files.zipfolder(tmpfolder,output_folder / f"bundle-{name}.zip")
+    return output_folder / f"bundle-{name}.zip"
