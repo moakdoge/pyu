@@ -6,7 +6,8 @@ from pyulib import files, other
 from .version import PackageVersion
 
 PACKAGE_DIR = Path("/home/moakdoge/Desktop/pyu/server/libs")
-
+if not PACKAGE_DIR.exists():
+    PACKAGE_DIR.mkdir()
 def generate_cache():
     data = {}
     for file in PACKAGE_DIR.glob("*.zip"):
