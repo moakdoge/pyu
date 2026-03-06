@@ -2,8 +2,8 @@ from pathlib import Path
 
 
 PARENT = Path(__file__).parent.parent
-CACHE = (PARENT / "CACHE")
-TESTS = (PARENT / "TESTS")
+CACHE = (PARENT / "cache")
+TESTS = (PARENT / "tests")
 PACKAGES = (PARENT / "libs")
 
 if not PARENT.exists():

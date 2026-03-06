@@ -12,12 +12,12 @@ def generate_cache():
 
     for file in config.PACKAGES.glob("*.zip"):
         with zipfile.ZipFile(file, "r") as z:
-            contents = z.read("VERSION").decode()
-            name = json.loads(z.read("metadata.json").decode())
+            meta = validate_package(z)
             data[file.name] = {
-                "name": name["name"],
-                "version": contents,
-                "depends": name.get("depends", {})
+                "name": meta.name,
+                "author": meta.author,
+                "version": str(meta.version),
+                "depends": meta.depends
             }
     with open(config.PACKAGES / "cache.json", "w") as f:
         f.write(json.dumps(data, indent=2))
@@ -29,6 +29,25 @@ def load_cache():
     with open(config.PACKAGES / "cache.json", "r") as file:
         return json.loads(file.read())
     
+def validate_package(folder: Path | str | zipfile.ZipFile):
+    from .metadata import PackageMetadata
+    _tmp = None
+    if isinstance(folder, zipfile.ZipFile):
+        _tmp = folder
+        folder = Path(files.tempfolder())
+        _tmp.extractall(folder) 
+    if isinstance(folder, str):
+        folder = Path(folder)
+    if not (folder / "metadata.json").exists():
+        raise exceptions.InvalidPackage(folder, reason="Missing metadata.json!")
+    d = json.loads((folder / "metadata.json").read_text())
+    if d.get("version", None) is None:
+        if (folder / "VERSION").exists():
+            d["version"] = (folder / "VERSION").read_text()
+    if _tmp is not None:
+        shutil.rmtree(folder)
+    return PackageMetadata.from_dict(d)
+
 def find_depends(package: str, ver_prov: PackageVersion | None = None):
     '''TAKES IN A PACKAGE NAME!!'''
     from .files import ZipExtractor
@@ -92,7 +111,7 @@ def find_depends(package: str, ver_prov: PackageVersion | None = None):
         dps.update(find_depends(lib, version)) # type: ignore
     return dps
 
-def locate_package(package_name: str, version: PackageVersion | None = None) -> Path | None:
+def locate_package(package_name: str, version: PackageVersion | None = None) -> Path:
     cached = load_cache()
     newest: tuple[str, PackageVersion] | None = None
 
@@ -102,7 +121,7 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
 
         contents = data.get("version")
         if not contents:
-            raise Exception("Invalid package!")
+            raise exceptions.PackageCorrupted("Missing version field!")
 
         v = PackageVersion.from_str(contents)
 
@@ -115,7 +134,7 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
             newest = (zipped, v)
 
     if newest is None:
-        return None
+        raise exceptions.PackageNotFound(package_name)
 
     return config.PACKAGES / newest[0]
 

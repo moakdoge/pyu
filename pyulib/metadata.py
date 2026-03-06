@@ -3,16 +3,17 @@ from pyulib import exceptions
 from . import files, packageutils, other, labels, config
 import time, json, shutil
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from .version import PackageVersion
 
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class PackageMetadata:
     name: str
     version: PackageVersion
     author: str
+    depends: dict[str, str] = field(default_factory=dict)
     @classmethod
     def from_dict(cls, d: dict):
         name = d.get("name", None)
@@ -22,28 +23,20 @@ class PackageMetadata:
         version = d.get("version", None)
         if version is None:
             raise exceptions.InvalidMetadata(f"Metadata {name} is missing a `version` field!")
-        cls(name=name, author=author, version=PackageVersion.from_str(version))
+        depends = d.get("depends", {})
+        return cls(name=name, author=author, version=PackageVersion.from_str(version), depends=depends)
 
 class Package:
     def __init__(self, package: str, version: str | PackageVersion | None = None):
         if isinstance(version, str):
             version = PackageVersion.from_str(version)
+        
         file = packageutils.locate_package(package, version=version)
-        if not file:
-            raise FileNotFoundError(f"{package} not found!")
         self._file = file
+
         with files.ZipExtractor(file_name=file.name, file_bytes=file.read_bytes()) as zipped:
-            ver = zipped / "VERSION"
-            meta = zipped / "metadata.json"
-            if not ver.exists() or not meta.exists():
-                raise FileNotFoundError(f"Invalid package!")
-            self._meta = json.loads(meta.read_text())
-            self._version = ver.read_text()
-        self._metadata = PackageMetadata(
-            self._meta["name"],
-            PackageVersion.from_str(self._version),
-            self._meta["author"]
-        )
+            self._metadata = packageutils.validate_package(file)
+            self._version = self._metadata.version
     
     @classmethod
     def generate_package(cls, folder: Path):
@@ -61,28 +54,12 @@ class Package:
         
         with files.tempfile("/tmp") as f:
             zip_path = f.name + ".zip"
-            version_file = tmpfolder / "VERSION"
-            metadata_file = tmpfolder / "metadata.json"
-            if not version_file.exists() or not metadata_file.exists():
-                raise exceptions.InvalidPackage(folder, "This is not a package! (missing metadata.json!)")
-            
+            meta = packageutils.validate_package(folder)
             watermark_file = tmpfolder / "WATERMARK"
-            version_contents = version_file.read_text()
-            metadata_contents = json.loads(metadata_file.read_text())
-            
-            if not version_file.exists() and metadata_file.exists():
-                ver = metadata_contents.get("version", None)
-                if ver:
-                    with open(tmpfolder / "VERSION", "w") as m:
-                        m.write(ver)
-
             watermark_file.write_text(labels.WATERMARK)
-            ver = PackageVersion.from_str(version_contents)
-            name = metadata_contents.get("name", None)
-            if name is None:
-                raise exceptions.InvalidPackage(folder, "metadata.json does not have a [name] field!")
+
             files.zipfolder(tmpfolder, zip_path)
-            shutil.copyfile(zip_path, Path(config.PACKAGES/ f"{other.beautify_name(name)}-{str(ver)}.zip"))
+            shutil.copyfile(zip_path, Path(config.PACKAGES/ f"{other.beautify_name(meta.name)}-{str(meta.version)}.zip"))
         packageutils.generate_cache()
 
     @property
@@ -97,21 +74,6 @@ class Package:
     def author(self):
         return self._metadata.author
 
-    @property
-    def metadata(self) -> PackageMetadata:
-        return self._metadata
-    
-    @property
-    def size(self):
-        return self._file.lstat().st_size
-
-    @property
-    def creation(self):
-        return self._file.lstat().st_ctime
-    
-    @property
-    def modification(self):
-        return self._file.lstat().st_mtime
 
 def cache():
     for file in config.TESTS.glob("*"):
