@@ -58,10 +58,10 @@ class ZipExtractor:
         return Path(self._folder)
 
     def __exit__(self, exc_type, exc, tb):
+        os.chdir(self._old_cwd)
         if self._folder:
             shutil.rmtree(self._folder)
             self._folder = None
-        os.chdir(self._old_cwd)
         return False
 
 def extract_zip(path: str | Path | None) -> Path | None:

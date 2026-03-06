@@ -5,11 +5,14 @@ import zipfile, json, re
 from pyulib import files, other
 from .version import PackageVersion
 
-PACKAGE_DIR = Path("/home/moakdoge/Desktop/pyu/server/libs")
-if not PACKAGE_DIR.exists():
-    PACKAGE_DIR.mkdir()
+PACKAGE_DIR = Path("libs")
+TESTS_DIR = Path("tests").resolve()
+
+PACKAGE_DIR.mkdir(exist_ok=True)
+TESTS_DIR.mkdir(exist_ok=True)
 def generate_cache():
     data = {}
+
     for file in PACKAGE_DIR.glob("*.zip"):
         with zipfile.ZipFile(file, "r") as z:
             contents = z.read("VERSION").decode()

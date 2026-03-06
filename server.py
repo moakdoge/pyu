@@ -8,17 +8,18 @@ import time
 import tempfile
 from pathlib import Path
 
+
 from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from pyulib import files, metadata
+from pyulib import files, metadata, other
 from pyulib.version import PackageVersion
 
 app = FastAPI()
 
-TESTS_DIR = Path("tests").resolve()
 CACHE_DIR = Path("tmp").resolve()
 CACHE_DIR.mkdir(exist_ok=True)
+
 
 @app.post("/upload")
 async def upload_package(file: UploadFile = File(...)):
@@ -60,5 +61,5 @@ def download(
 
 if __name__ == "__main__":
     import uvicorn
-
+    metadata.cache()
     uvicorn.run(app, host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "5000")))

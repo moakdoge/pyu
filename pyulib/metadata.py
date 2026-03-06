@@ -92,3 +92,10 @@ class Package:
     @property
     def modification(self):
         return self._file.lstat().st_mtime
+
+def cache():
+    for file in packageutils.TESTS_DIR.glob("*"):
+        if file.is_file():
+            continue
+        Package.generate_package(file)
+    packageutils.generate_cache()
