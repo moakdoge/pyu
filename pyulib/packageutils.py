@@ -1,3 +1,4 @@
+import io
 from pathlib import Path
 import shutil
 import time
@@ -12,14 +13,13 @@ def generate_cache():
     data = {}
 
     for file in config.PACKAGES.glob("*.zip"):
-        with zipfile.ZipFile(file, "r") as z:
-            meta = validate_package(z)
-            data[file.name] = {
-                "name": meta.name,
-                "author": meta.author,
-                "version": str(meta.version),
-                "depends": meta.depends
-            }
+        meta = validate_package(file)
+        data[file.name] = {
+            "name": meta.name,
+            "author": meta.author,
+            "version": str(meta.version),
+            "depends": meta.depends
+        }
     with open(config.PACKAGES / "cache.json", "w") as f:
         f.write(json.dumps(data, indent=2))
 
@@ -33,31 +33,31 @@ def load_cache():
 def validate_package(folder: Path | str | zipfile.ZipFile):
     from .metadata import PackageMetadata
     _tmp = None
+    metadata = None
     #convert folder from str to path or zipfile to path
     if isinstance(folder, str):
         folder = Path(folder)
+        metadata=(folder / "metadata.json").read_text()
 
     if isinstance(folder, zipfile.ZipFile):
         _tmp = folder
         folder = Path(files.tempfolder())
-        _tmp.extractall(folder) 
+        metadata=_tmp.read("metadata.json").decode(errors="ignore")   
+
     elif isinstance(folder, Path) and zipfile.is_zipfile(folder):
         _tmp = folder
         folder = Path(files.tempfolder())
         with zipfile.ZipFile(_tmp) as z:
-            z.extractall(folder) 
+            metadata=z.read("metadata.json").decode(errors="ignore")
+    
+    elif isinstance(folder, Path):
+        metadata=(folder / "metadata.json").read_text()
     
 
-    metadata=(folder / "metadata.json")  
-    if not metadata.exists():
-
+    if metadata is None:
         raise exceptions.InvalidPackage(folder, reason="Missing metadata.json!")
     
-    d = json.loads(metadata.read_text())
-    if d.get("version", None) is None:
-        if (folder / "VERSION").exists():
-            d["version"] = (folder / "VERSION").read_text()
-
+    d = json.loads(metadata)
     #remove tmp folder
     if _tmp is not None:
         shutil.rmtree(folder)
@@ -67,19 +67,14 @@ def validate_package(folder: Path | str | zipfile.ZipFile):
 def find_depends(package: str, ver_prov: PackageVersion | None = None):
     '''TAKES IN A PACKAGE NAME!!'''
     from .files import ZipExtractor
+    from .metadata import PackageMetadata
     depends = set()
     dps = {}
     cached = load_cache()
     comped = re.compile(r'^(>=|<=|>|<|=)?\s*([0-9]+(?:\.[0-9]+)*)')
-    pkg = locate_package(package)
-    if pkg is None:
-        raise exceptions.PackageNotFound(package)
-
-    with ZipExtractor(pkg) as z:
-        with open(z / "metadata.json", "r") as m:
-            c=json.loads(m.read())
-            depends = c.get("depends", {})
-    for lib, version in depends.items():
+    metadata = PackageMetadata.from_package(package)
+    
+    for lib, version in metadata.depends.items():
         matched = comped.match(version)
         operator = ""
         if matched:
@@ -87,6 +82,7 @@ def find_depends(package: str, ver_prov: PackageVersion | None = None):
             operator = matched.group(1)
         else:
             raise TypeError("Invalid operator!")
+        
         for zipped, data in cached.items():
             vv = PackageVersion.from_str(data["version"])
             name = data["name"]
@@ -156,19 +152,19 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
 
 
 def zip_packages(packages: dict[str, str], output_folder: Path) -> Path:
-    tmpfolder = Path(files.tempfolder())
-    name=""
-    for package, ver in packages.items():
-        version_number = PackageVersion.from_str(ver)
-        located_package: Path | None = locate_package(package, version=version_number)
-        if located_package:
-            shutil.copyfile(located_package.absolute(), tmpfolder / located_package.name)
-        else:
-            raise ()
-        name += other.hash(package) + other.hash(ver)
+    tmp = io.BytesIO()
+    with zipfile.ZipFile(tmp, "w") as z:
+        name=""
+        for package, ver in packages.items():
+            version_number = PackageVersion.from_str(ver)
+            located_package: Path | None = locate_package(package, version=version_number)
+            if located_package:
+                z.write(located_package.absolute(), located_package.name)
+            else:
+                raise ()
+            name += other.hash(package) + other.hash(ver)
 
-    name = other.hash(name)
-    with open(tmpfolder / "packages.json", "w") as f:
+        name = other.hash(name)
         import datetime
         metadata = {
             "hash": name,
@@ -176,7 +172,9 @@ def zip_packages(packages: dict[str, str], output_folder: Path) -> Path:
             "package_count": len(packages.keys()),
             "packages": dict(packages.items())
         }
-        f.write(json.dumps(metadata, indent=2)) 
+        f = json.dumps(metadata, indent=2)
+        z.writestr("package.json", data=f)
     
-    files.zipfolder(tmpfolder,output_folder / f"bundle-{name}.zip")
-    return output_folder / f"bundle-{name}.zip"
+    with open(output_folder / f"bundle-{name}.zip", "wb") as f:
+        f.write(tmp.getvalue())
+    return (output_folder / f"bundle-{name}.zip")

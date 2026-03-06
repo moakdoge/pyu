@@ -1,4 +1,5 @@
 import tempfile
+import zipfile
 
 from pyulib import exceptions
 
@@ -27,6 +28,13 @@ class PackageMetadata:
             raise exceptions.InvalidMetadata(f"Metadata {name} is missing a `version` field!")
         depends = d.get("depends", {})
         return cls(name=name, author=author, version=PackageVersion.from_str(version), depends=depends)
+    @classmethod
+    def from_package(cls, package: str):
+        pack = packageutils.locate_package(package)
+
+        with zipfile.ZipFile(pack, mode="r") as zipped:
+            return packageutils.validate_package(zipped)
+    
     def __post_init__(self):
         self.name = other.beautify_name(self.name)
 class Package:
