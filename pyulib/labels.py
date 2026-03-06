@@ -1,4 +1,3 @@
 WATERMARK = '''
-    This .zip file is a package created by pyu. Modifying is okay.
-    Thanks for using!
+    DO NOT MODIFY THIS FILE! CREATED BY PYU
 '''

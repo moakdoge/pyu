@@ -36,6 +36,10 @@ async def upload_package(file: UploadFile = File(...)):
 
     return 200
 
+@app.get("/package-list")
+def package_list():
+    return metadata.packageutils.load_cache()
+        
 @app.get("/packages/{name}/download")
 def download(
     name: str,

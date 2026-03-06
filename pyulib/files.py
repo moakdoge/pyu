@@ -52,10 +52,12 @@ def tempfolder():
     return tmpfle.mkdtemp()
 
 class ZipExtractor:
-    def __init__(self, file_name: str, file_bytes: bytes | None = None) -> None:
+    def __init__(self, file_name: str | Path, file_bytes: bytes | None = None) -> None:
         if file_bytes is None:
             with open(file_name, "rb") as f:
                 file_bytes = f.read()
+        if isinstance(file_name, Path):
+            file_name = str(file_name)
         self._name = file_name
         self._bytes = io.BytesIO(file_bytes)
         self._folder = None 

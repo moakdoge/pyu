@@ -4,7 +4,7 @@ import zipfile, json, re
 
 from pyulib import files, other
 from .version import PackageVersion
-from . import config
+from . import config, exceptions
 
 
 def generate_cache():
@@ -37,6 +37,9 @@ def find_depends(package: str, ver_prov: PackageVersion | None = None):
     cached = load_cache()
     comped = re.compile(r'^(>=|<=|>|<|=)?\s*([0-9]+(?:\.[0-9]+)*)')
     pkg = locate_package(package)
+    if pkg is None:
+        raise exceptions.PackageNotFound(package)
+
     with ZipExtractor(pkg) as z:
         with open(z / "metadata.json", "r") as m:
             c=json.loads(m.read())
