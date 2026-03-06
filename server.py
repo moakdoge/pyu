@@ -5,30 +5,31 @@ import os
 import re
 import shutil
 import time
-import tempfile
+import tempfile,zipfile
 from pathlib import Path
 
 
 from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from pyulib import files, metadata, other
+from pyulib import files, metadata, other, config
 from pyulib.version import PackageVersion
 
 app = FastAPI()
-
-CACHE_DIR = Path("tmp").resolve()
-CACHE_DIR.mkdir(exist_ok=True)
 
 
 @app.post("/upload")
 async def upload_package(file: UploadFile = File(...)):
     if file is None or file.filename is None:
         raise HTTPException(status_code=403, detail="Please provide a file!")
-    import zipfile
     contents = await file.read()
+    if len(contents) > config.MAX_SIZE:
+        raise HTTPException(status_code=400, detail="File too big; please keep it beneath 10MiB!")
+    contents = io.BytesIO(contents)
+    if not zipfile.is_zipfile(contents):
+        raise HTTPException(status_code=400, detail="Invalid zip file")
     with tempfile.TemporaryDirectory() as m:
-        with zipfile.ZipFile(io.BytesIO(contents), "r") as z:
+        with zipfile.ZipFile(contents, "r") as z:
             z.extractall(m)
         metadata.Package.generate_package(Path(m))
 

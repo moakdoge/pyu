@@ -1,4 +1,4 @@
-from . import files, packageutils, other, labels
+from . import files, packageutils, other, labels, config
 import time, json, shutil
 from pathlib import Path
 from dataclasses import dataclass
@@ -62,7 +62,7 @@ class Package:
             ver = PackageVersion.from_str(v.read_text())
             name = json.loads(n.read_text())["name"]
             files.zipfolder(tmpfolder, zip_path)
-            shutil.copyfile(zip_path, Path(packageutils.PACKAGE_DIR / f"{other.beautify_name(name)}-{str(ver)}.zip"))
+            shutil.copyfile(zip_path, Path(config.PACKAGES/ f"{other.beautify_name(name)}-{str(ver)}.zip"))
         packageutils.generate_cache()
 
     @property
@@ -94,7 +94,7 @@ class Package:
         return self._file.lstat().st_mtime
 
 def cache():
-    for file in packageutils.TESTS_DIR.glob("*"):
+    for file in config.TESTS.glob("*"):
         if file.is_file():
             continue
         Package.generate_package(file)

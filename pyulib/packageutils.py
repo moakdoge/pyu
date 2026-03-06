@@ -4,16 +4,13 @@ import zipfile, json, re
 
 from pyulib import files, other
 from .version import PackageVersion
+from . import config
 
-PACKAGE_DIR = Path("libs")
-TESTS_DIR = Path("tests").resolve()
 
-PACKAGE_DIR.mkdir(exist_ok=True)
-TESTS_DIR.mkdir(exist_ok=True)
 def generate_cache():
     data = {}
 
-    for file in PACKAGE_DIR.glob("*.zip"):
+    for file in config.PACKAGES.glob("*.zip"):
         with zipfile.ZipFile(file, "r") as z:
             contents = z.read("VERSION").decode()
             name = json.loads(z.read("metadata.json").decode())
@@ -22,14 +19,14 @@ def generate_cache():
                 "version": contents,
                 "depends": name.get("depends", {})
             }
-    with open(PACKAGE_DIR / "cache.json", "w") as f:
+    with open(config.PACKAGES / "cache.json", "w") as f:
         f.write(json.dumps(data, indent=2))
 
 def load_cache():
-    if not (PACKAGE_DIR / "cache.json").exists():
+    if not (config.PACKAGES / "cache.json").exists():
         generate_cache()
 
-    with open(PACKAGE_DIR / "cache.json", "r") as file:
+    with open(config.PACKAGES / "cache.json", "r") as file:
         return json.loads(file.read())
     
 def find_depends(package: str, ver_prov: PackageVersion | None = None):
@@ -108,7 +105,7 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
 
         if version is not None:
             if v == version:
-                return PACKAGE_DIR / zipped
+                return config.PACKAGES / zipped
             continue
 
         if newest is None or v > newest[1]:
@@ -117,7 +114,7 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
     if newest is None:
         return None
 
-    return PACKAGE_DIR / newest[0]
+    return config.PACKAGES / newest[0]
 
 
 def zip_packages(packages: dict[str, str], output_folder: Path) -> Path:
