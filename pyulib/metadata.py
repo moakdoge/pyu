@@ -1,3 +1,5 @@
+import tempfile
+
 from pyulib import exceptions
 
 from . import files, packageutils, other, labels, config
@@ -25,7 +27,8 @@ class PackageMetadata:
             raise exceptions.InvalidMetadata(f"Metadata {name} is missing a `version` field!")
         depends = d.get("depends", {})
         return cls(name=name, author=author, version=PackageVersion.from_str(version), depends=depends)
-
+    def __post_init__(self):
+        self.name = other.beautify_name(self.name)
 class Package:
     def __init__(self, package: str, version: str | PackageVersion | None = None):
         if isinstance(version, str):
@@ -44,22 +47,23 @@ class Package:
         if not folder.exists():
             raise FileNotFoundError(f"Folder {folder.absolute()} does not exist! Cannot make package.")
         
-        tmpfolder = Path(files.tempfolder())
-        for item in folder.iterdir():
-            target = tmpfolder / item.name
-            if item.is_dir():
-                shutil.copytree(item, target, dirs_exist_ok=True)
-            else:
-                shutil.copy2(item, target)
-        
-        with files.tempfile("/tmp") as f:
-            zip_path = f.name + ".zip"
-            meta = packageutils.validate_package(folder)
-            watermark_file = tmpfolder / "WATERMARK"
-            watermark_file.write_text(labels.WATERMARK)
+        with tempfile.TemporaryDirectory() as __tmp:
+            tmpfolder = Path(__tmp)
+            for item in folder.iterdir():
+                target = tmpfolder / item.name
+                if item.is_dir():
+                    shutil.copytree(item, target, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(item, target)
+            
+            with files.tempfile("/tmp") as f:
+                zip_path = f.name + ".zip"
+                meta = packageutils.validate_package(folder)
+                watermark_file = tmpfolder / "WATERMARK"
+                watermark_file.write_text(labels.WATERMARK)
 
-            files.zipfolder(tmpfolder, zip_path)
-            shutil.copyfile(zip_path, Path(config.PACKAGES/ f"{other.beautify_name(meta.name)}-{str(meta.version)}.zip"))
+                files.zipfolder(tmpfolder, zip_path)
+                shutil.copyfile(zip_path, Path(config.PACKAGES/ f"{other.beautify_name(meta.name)}-{str(meta.version)}.zip"))
         packageutils.generate_cache()
 
     @property

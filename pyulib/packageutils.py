@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import time
 import zipfile, json, re
 
 from pyulib import files, other
@@ -32,20 +33,31 @@ def load_cache():
 def validate_package(folder: Path | str | zipfile.ZipFile):
     from .metadata import PackageMetadata
     _tmp = None
+    #convert over zipfile and str to Path
+    print(type(folder))
     if isinstance(folder, zipfile.ZipFile):
         _tmp = folder
         folder = Path(files.tempfolder())
         _tmp.extractall(folder) 
+
     if isinstance(folder, str):
         folder = Path(folder)
-    if not (folder / "metadata.json").exists():
+
+    metadata=(folder / "metadata.json")  
+    if not metadata.exists():
+        print("failed to find metadata:", folder.absolute())
+        time.sleep(500)
         raise exceptions.InvalidPackage(folder, reason="Missing metadata.json!")
-    d = json.loads((folder / "metadata.json").read_text())
+    
+    d = json.loads(metadata.read_text())
     if d.get("version", None) is None:
         if (folder / "VERSION").exists():
             d["version"] = (folder / "VERSION").read_text()
+
+    #remove tmp folder
     if _tmp is not None:
         shutil.rmtree(folder)
+
     return PackageMetadata.from_dict(d)
 
 def find_depends(package: str, ver_prov: PackageVersion | None = None):

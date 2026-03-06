@@ -64,6 +64,7 @@ async def download(
 
 @app.exception_handler(exceptions.BaseHTTPException)
 async def handle_pyu_erroappr(request, exc):
+    print(str(exc))
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": str(exc)}
