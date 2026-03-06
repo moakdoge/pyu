@@ -70,7 +70,7 @@ def find_depends(package: str, ver_prov: PackageVersion | None = None):
             version = PackageVersion.from_str(matched.group(2))
             operator = matched.group(1)
         else:
-            raise Exception("Invalid operator!")
+            raise TypeError("Invalid operator!")
         for zipped, data in cached.items():
             vv = PackageVersion.from_str(data["version"])
             name = data["name"]
@@ -101,10 +101,10 @@ def find_depends(package: str, ver_prov: PackageVersion | None = None):
                         version = vv
                         break
                 case _:
-                    raise Exception("Invalid operator!")
+                    raise TypeError("Invalid operator!")
         if lib in dps:
             if dps[lib] != str(version):
-                raise NotImplementedError("Multiple versions of the same package are unsupporteD!")
+                raise NotImplementedError("Multiple versions of the same package are unsupported!")
         else:
             dps[lib]=str(version)
 
@@ -148,7 +148,7 @@ def zip_packages(packages: dict[str, str], output_folder: Path) -> Path:
         if located_package:
             shutil.copyfile(located_package.absolute(), tmpfolder / located_package.name)
         else:
-            raise FileNotFoundError(f"Package {package} (v{ver}) not found!")
+            raise ()
         name += other.hash(package) + other.hash(ver)
 
     name = other.hash(name)

@@ -12,7 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from pyulib import files, metadata, other, config
+from pyulib import exceptions, files, metadata, other, config
 from pyulib.version import PackageVersion
 
 app = FastAPI()
@@ -37,33 +37,43 @@ async def upload_package(file: UploadFile = File(...)):
     return 200
 
 @app.get("/package-list")
-def package_list():
+async def package_list():
     return metadata.packageutils.load_cache()
         
 @app.get("/packages/{name}/download")
-def download(
+async def download(
     name: str,
-    depends: int = Query(default=0),
+    depends: bool = True,
     version: str | None = Query(default=None),
     ):
-    name = name
+    
     metadata.packageutils.generate_cache()
-    pack = metadata.Package(name, version)
-    if depends == 1:
-        tmpfl = files.tempfolder()
-        dps = metadata.packageutils.find_depends(pack.name, pack.version)
-        dps.update({pack.name: str(pack.version)})
-        zip_path = metadata.packageutils.zip_packages(dps, Path(tmpfl))
-        data = zip_path.read_bytes()
-        shutil.rmtree(tmpfl)
+    try:
+        pack = metadata.Package(name, version)
+    except exceptions.PackageNotFound as e:
+        return HTTPException(status_code=404, detail=e)
+    except exceptions.PackageCorrupted as e:
+        return HTTPException(status_code=500, detail=e)
+    
+    if depends:
+        with tempfile.TemporaryDirectory() as tmpfl:
+            dps = metadata.packageutils.find_depends(pack.name, pack.version)
+            dps.update({pack.name: str(pack.version)})
+            zip_path = metadata.packageutils.zip_packages(dps, Path(tmpfl))
+            data = zip_path.read_bytes()
         return Response(content=data, media_type="application/zip")
         
        # return FileResponse(path=str(zip_path.absolute()), media_type="application/zip", filename=zip_path.name)
     else:
-    #pass
-        return FileResponse(path=pack._file, media_type="application/zip")
 
+        return Response(content=pack._file, media_type="application/zip")
 
+@app.exception_handler(exceptions.BaseHTTPException)
+async def handle_pyu_erroappr(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": str(exc)}
+    )
 
 if __name__ == "__main__":
     import uvicorn
