@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 import re
 import shutil
@@ -7,7 +8,7 @@ import time
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 from pyulib import files, metadata
@@ -19,6 +20,19 @@ TESTS_DIR = Path("tests").resolve()
 CACHE_DIR = Path("tmp").resolve()
 CACHE_DIR.mkdir(exist_ok=True)
 
+@app.post("/upload")
+async def upload_package(file: UploadFile = File(...)):
+    if file is None or file.filename is None:
+        raise HTTPException(status_code=403, detail="Please provide a file!")
+    import zipfile
+    contents = await file.read()
+    with tempfile.TemporaryDirectory() as m:
+        with zipfile.ZipFile(io.BytesIO(contents), "r") as z:
+            z.extractall(m)
+        metadata.Package.generate_package(Path(m))
+
+    return 200
+
 @app.get("/packages/{name}/download")
 def download(
     name: str,
@@ -26,7 +40,6 @@ def download(
     version: str | None = Query(default=None),
     ):
     name = name
-    print(depends)
     metadata.packageutils.generate_cache()
     pack = metadata.Package(name, version)
     if depends == 1:
