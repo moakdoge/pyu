@@ -33,20 +33,24 @@ def load_cache():
 def validate_package(folder: Path | str | zipfile.ZipFile):
     from .metadata import PackageMetadata
     _tmp = None
-    #convert over zipfile and str to Path
-    print(type(folder))
+    #convert folder from str to path or zipfile to path
+    if isinstance(folder, str):
+        folder = Path(folder)
+
     if isinstance(folder, zipfile.ZipFile):
         _tmp = folder
         folder = Path(files.tempfolder())
         _tmp.extractall(folder) 
-
-    if isinstance(folder, str):
-        folder = Path(folder)
+    elif isinstance(folder, Path) and zipfile.is_zipfile(folder):
+        _tmp = folder
+        folder = Path(files.tempfolder())
+        with zipfile.ZipFile(_tmp) as z:
+            z.extractall(folder) 
+    
 
     metadata=(folder / "metadata.json")  
     if not metadata.exists():
-        print("failed to find metadata:", folder.absolute())
-        time.sleep(500)
+
         raise exceptions.InvalidPackage(folder, reason="Missing metadata.json!")
     
     d = json.loads(metadata.read_text())

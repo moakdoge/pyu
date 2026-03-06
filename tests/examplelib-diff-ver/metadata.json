@@ -1,8 +1,8 @@
 {
-    "name": "Library2",
+    "name": "library2",
     "author": "moakdoge",
     "version": "1.4.3",
     "depends": {
-        "Example Library": ">=1.0.0"
+        "example_library": ">=1.0.0"
     }
 }
