@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from pyulib import exceptions
+
 
 @dataclass(frozen=True)
 class PackageVersion:
@@ -41,9 +43,9 @@ class PackageVersion:
     def from_str(cls, st: str):
         parts = st.split(".")
         if len(parts) != 3:
-            raise TypeError(f"Too little detail in versions!")
+            raise exceptions.InvalidVersion(f"Not 3 parts long! (Your length: {len(parts)})")
         try:
             parts = [int(p) for p in parts]
         except ValueError:
-            raise ValueError(f"Please make sure all version numbers have only numbers!")
+            raise exceptions.InvalidVersion(f"{st}")
         return cls(*parts)

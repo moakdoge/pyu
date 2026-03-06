@@ -13,6 +13,16 @@ class PackageMetadata:
     name: str
     version: PackageVersion
     author: str
+    @classmethod
+    def from_dict(cls, d: dict):
+        name = d.get("name", None)
+        if not name:
+            raise exceptions.InvalidMetadata(f"Name field missing!")
+        author = d.get("author", "N/A")
+        version = d.get("version", None)
+        if version is None:
+            raise exceptions.InvalidMetadata(f"Metadata {name} is missing a `version` field!")
+        cls(name=name, author=author, version=PackageVersion.from_str(version))
 
 class Package:
     def __init__(self, package: str, version: str | PackageVersion | None = None):
@@ -68,7 +78,9 @@ class Package:
 
             watermark_file.write_text(labels.WATERMARK)
             ver = PackageVersion.from_str(version_contents)
-            name = metadata_contents["name"]
+            name = metadata_contents.get("name", None)
+            if name is None:
+                raise exceptions.InvalidPackage(folder, "metadata.json does not have a [name] field!")
             files.zipfolder(tmpfolder, zip_path)
             shutil.copyfile(zip_path, Path(config.PACKAGES/ f"{other.beautify_name(name)}-{str(ver)}.zip"))
         packageutils.generate_cache()
