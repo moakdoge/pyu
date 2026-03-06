@@ -34,7 +34,20 @@ def zipfolder(folder: Path | str, save_file: Path | None = None) -> bytes:
                 z.write(f, f.relative_to(folder))
 
     return buffer.getvalue()
-            
+
+def extractall(z: zipfile.ZipFile, dest: Path):
+    dest = dest.resolve()
+
+    for member in z.infolist():
+        target = (dest / member.filename).resolve()
+
+        try:
+            target.relative_to(dest)
+        except ValueError:
+            raise ValueError(f"illegal path in archive: {member.filename}")
+
+    z.extractall(dest)    
+
 def tempfolder():
     return tmpfle.mkdtemp()
 
@@ -67,3 +80,19 @@ class ZipExtractor:
 def extract_zip(path: str | Path | None) -> Path | None:
     if path is None:
         return None
+    
+def vpath(path: Path | str, base: Path | str | None = None):
+    if isinstance(path, str):   path = Path(path)
+    if isinstance(base, str):   base = Path(base)
+    if base is None:
+        return path.resolve(strict=True)
+
+    base = base.resolve()
+    resolved = (base / path).resolve()
+
+    try:
+        resolved.relative_to(base)
+    except ValueError:
+        raise ValueError("path escape")
+
+    return resolved

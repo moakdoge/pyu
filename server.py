@@ -28,9 +28,10 @@ async def upload_package(file: UploadFile = File(...)):
     contents = io.BytesIO(contents)
     if not zipfile.is_zipfile(contents):
         raise HTTPException(status_code=400, detail="Invalid zip file")
+    contents.seek(0)
     with tempfile.TemporaryDirectory() as m:
         with zipfile.ZipFile(contents, "r") as z:
-            z.extractall(m)
+            files.extractall(z, files.vpath(m))
         metadata.Package.generate_package(Path(m))
 
     return 200
