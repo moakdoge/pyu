@@ -48,13 +48,7 @@ async def download(
     ):
     
     metadata.packageutils.generate_cache()
-    try:
-        pack = metadata.Package(name, version)
-    except exceptions.PackageNotFound as e:
-        return HTTPException(status_code=404, detail=e)
-    except exceptions.PackageCorrupted as e:
-        return HTTPException(status_code=500, detail=e)
-    
+    pack = metadata.Package(name, version)
     if depends:
         with tempfile.TemporaryDirectory() as tmpfl:
             dps = metadata.packageutils.find_depends(pack.name, pack.version)
