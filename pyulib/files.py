@@ -47,6 +47,9 @@ def extractall(z: zipfile.ZipFile, dest: Path):
             raise ValueError(f"illegal path in archive: {member.filename}")
 
     z.extractall(dest)    
+    
+def calculate_zip_size(z: zipfile.ZipFile):
+    return sum(mem.file_size for mem in z.infolist())
 
 def tempfolder():
     return tmpfle.mkdtemp()

@@ -174,10 +174,10 @@ def zip_packages(packages: dict[str, str], output_folder: Path | None = None) ->
         }
         f = json.dumps(metadata, indent=2)
         z.writestr("package.json", data=f)
-    
+    _file_name = f"bundle-{name}.zip"
     if output_folder:
-        with open(output_folder / f"bundle-{name}.zip", "wb") as f:
+        with open(output_folder / _file_name, "wb") as f:
             f.write(tmp.getvalue())
-        return (output_folder / f"bundle-{name}.zip")
+        return (output_folder / _file_name)
     else:
-        return (tmp.getvalue(), f"bundle-{name}.zip")
+        return (tmp.getvalue(), _file_name)
