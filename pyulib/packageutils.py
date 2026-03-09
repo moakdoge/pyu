@@ -151,7 +151,7 @@ def locate_package(package_name: str, version: PackageVersion | None = None) -> 
     return config.PACKAGES / newest[0]
 
 
-def zip_packages(packages: dict[str, str], output_folder: Path) -> Path:
+def zip_packages(packages: dict[str, str], output_folder: Path | None = None) -> Path | tuple[bytes, str]:
     tmp = io.BytesIO()
     with zipfile.ZipFile(tmp, "w") as z:
         name=""
@@ -175,6 +175,9 @@ def zip_packages(packages: dict[str, str], output_folder: Path) -> Path:
         f = json.dumps(metadata, indent=2)
         z.writestr("package.json", data=f)
     
-    with open(output_folder / f"bundle-{name}.zip", "wb") as f:
-        f.write(tmp.getvalue())
-    return (output_folder / f"bundle-{name}.zip")
+    if output_folder:
+        with open(output_folder / f"bundle-{name}.zip", "wb") as f:
+            f.write(tmp.getvalue())
+        return (output_folder / f"bundle-{name}.zip")
+    else:
+        return (tmp.getvalue(), f"bundle-{name}.zip")

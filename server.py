@@ -40,13 +40,18 @@ async def upload_package(file: UploadFile = File(...)):
 async def package_list():
     return metadata.packageutils.load_cache()
         
+@app.get("/packages/{name}")
+async def data(name: str):
+    cache = metadata.packageutils.load_cache()
+    pack = metadata.packageutils.locate_package(name)
+    return cache[str(pack.name)]
 @app.get("/packages/{name}/download")
 async def download(
     name: str,
     depends: bool = True,
     version: str | None = Query(default=None),
     ):
-    
+    n=f"{name}.zip"
     metadata.packageutils.generate_cache()
     pack = metadata.Package(name, version)
     if depends:
@@ -54,14 +59,20 @@ async def download(
                         
             dps = metadata.packageutils.find_depends(pack.name, pack.version)
             dps.update({pack.name: str(pack.version)})
-            zip_path = metadata.packageutils.zip_packages(dps, Path(tmpfl))
-            data = zip_path.read_bytes()
-        return Response(content=data, media_type="application/zip")
+            zip_path, n = metadata.packageutils.zip_packages(dps) # type: ignore
+            data = zip_path
+        headers={
+            "Content-Disposition": 'attachment; filename="%s"' % n
+        }
+        return Response(content=data, media_type="application/zip", headers=headers)
         
        # return FileResponse(path=str(zip_path.absolute()), media_type="application/zip", filename=zip_path.name)
     else:
-
-        return Response(content=pack._file, media_type="application/zip")
+        print(n)
+        headers={
+            "Content-Disposition": 'attachment; filename="%s"' % n
+        }
+        return Response(content=pack._file, media_type="application/zip", headers=headers)
 
 @app.exception_handler(exceptions.BaseHTTPException)
 async def handle_pyu_erroappr(request, exc):
