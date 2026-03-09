@@ -20,6 +20,10 @@ class PackageNotFound(BaseHTTPException):
     status_code=404
     def __init__(self, package: str):
         super().__init__(f"Package {package} was not found.")
+class PackageExists(BaseHTTPException):
+    status_code=409
+    def __init__(self, package: str, version: str = "N/A"):
+        super().__init__(f"Package {package} (v{version}) already exists!")
 class PackageCorrupted(BaseHTTPException):
     status_code=500
     def __init__(self, package: str, corruption: str = "Unknown") -> None:

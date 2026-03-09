@@ -67,6 +67,12 @@ class Package:
             with files.tempfile("/tmp") as f:
                 zip_path = f.name + ".zip"
                 meta = packageutils.validate_package(folder)
+                try:
+                    packageutils.locate_package(meta.name, meta.version)
+                    raise exceptions.PackageExists(meta.name, str(meta.version))
+                except exceptions.PackageNotFound as e: #amazing way to detect if a package exists lmfao
+                    pass
+                
                 watermark_file = tmpfolder / "WATERMARK"
                 watermark_file.write_text(labels.WATERMARK)
 
@@ -88,8 +94,15 @@ class Package:
 
 
 def cache():
+    import os
+    cache_file = config.PACKAGES / "cache.json"
+    if cache_file.exists():
+        os.remove(cache_file)
     for file in config.TESTS.glob("*"):
         if file.is_file():
             continue
-        Package.generate_package(file)
+        try:
+            Package.generate_package(file)
+        except exceptions.PackageExists:
+            pass
     packageutils.generate_cache()

@@ -43,11 +43,18 @@ async def upload_package(file: UploadFile = File(...)):
 async def package_list():
     return metadata.packageutils.load_cache()
         
-@app.get("/packages/{name}")
-async def data(name: str):
+@app.get("/packages/{name}/cache")
+async def cache(name: str):
     cache = metadata.packageutils.load_cache()
     pack = metadata.packageutils.locate_package(name)
     return cache[str(pack.name)]
+
+@app.get("/packages/{name}/depends")
+async def depends(name: str):
+    cache = metadata.packageutils.load_cache()
+    pack = metadata.packageutils.locate_package(name)
+    return cache[str(pack.name)].get("depends", {})
+
 
 @app.get("/packages/{name}/download")
 async def download(
@@ -72,7 +79,6 @@ async def download(
         
        # return FileResponse(path=str(zip_path.absolute()), media_type="application/zip", filename=zip_path.name)
     else:
-        print(n)
         headers={
             "Content-Disposition": 'attachment; filename="%s"' % n
         }

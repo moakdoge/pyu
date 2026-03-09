@@ -19,7 +19,7 @@ tempfile.tempdir = str(CACHE.absolute())
 #other shit
 
 MAX_SIZE = "10 MiB"
-MAX_UNCOMPRESSED_SIZE = "1 KiB"
+MAX_UNCOMPRESSED_SIZE = "100 MiB"
 
 MAX_SIZE = units.unit_to_num(MAX_SIZE)
 MAX_UNCOMPRESSED_SIZE = units.unit_to_num(MAX_UNCOMPRESSED_SIZE)
