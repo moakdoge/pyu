@@ -11,15 +11,9 @@ from . import config, exceptions
 
 def generate_cache():
     data = {}
-
     for file in config.PACKAGES.rglob("*.zip"):
         meta = validate_package(file)
-        data[file.name] = {
-            "name": meta.name,
-            "author": meta.author,
-            "version": str(meta.version),
-            "depends": meta.depends
-        }
+        data[file.name] = meta.cache
     with open(config.PACKAGES / "cache.json", "w") as f:
         f.write(json.dumps(data, indent=2))
 

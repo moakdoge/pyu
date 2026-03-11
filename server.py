@@ -40,35 +40,30 @@ async def upload_package(file: UploadFile = File(...)):
 
     return 200
 
-@app.get("/package-list")
-async def package_list():
-    return metadata.packageutils.load_cache()
-        
-@app.get("/packages/{name}/cache")
-async def cache(name: str):
-    cache = metadata.packageutils.load_cache()
-    pack = metadata.packageutils.locate_package(name)
-    return cache[str(pack.name)]
-
-@app.get("/packages/{name}/depends")
-async def depends(name: str):
-    cache = metadata.packageutils.load_cache()
-    pack = metadata.packageutils.locate_package(name)
-    return cache[str(pack.name)].get("depends", {})
+@app.get("/packages/list")
+async def package_list(amount: int | None = Query(default=100), offset: int | None = Query(default=0)):
+    c = metadata.packageutils.load_cache()
+    return c[offset:amount]
 
 
+
+@app.get("/packages/{name}/{version}/download")
 @app.get("/packages/{name}/download")
 async def download(
     name: str,
     depends: bool = True,
-    version: str | None = Query(default=None),
+    version: str | None = None,
     ):
+    if version is None:
+        version = metadata.packageutils.latest(name)
     n=f"{name}.zip"
+
     metadata.packageutils.generate_cache()
+    print("version:", repr(version))
     pack = metadata.Package(name, version)
     if depends:
         with tempfile.TemporaryDirectory() as tmpfl:
-                        
+            
             dps = metadata.packageutils.find_depends(pack.name, pack.version)
             dps.update({pack.name: str(pack.version)})
             zip_path, n = metadata.packageutils.zip_packages(dps) # type: ignore
@@ -83,7 +78,15 @@ async def download(
         headers={
             "Content-Disposition": 'attachment; filename="%s"' % n
         }
-        return Response(content=pack._file, media_type="application/zip", headers=headers)
+        return Response(content=pack._file.read_bytes(), media_type="application/zip", headers=headers)
+
+@app.get("/packages/{name}/{ver}")
+@app.get("/packages/{name}")
+async def cache(name: str, ver: str | None = None):
+    c = PackageVersion.from_str(ver) if ver is not None else None
+    pack = metadata.packageutils.locate_package(name, c)
+    meta = metadata.packageutils.validate_package(pack)
+    return meta.full_cache
 
 @app.exception_handler(exceptions.BaseHTTPException)
 async def handle_pyu_erroappr(request, exc):

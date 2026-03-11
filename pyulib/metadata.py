@@ -17,6 +17,7 @@ class PackageMetadata:
     version: PackageVersion
     author: str
     depends: dict[str, str] = field(default_factory=dict)
+    description: str = ""
     @classmethod
     def from_dict(cls, d: dict):
         name = d.get("name", None)
@@ -27,14 +28,13 @@ class PackageMetadata:
         if version is None:
             raise exceptions.InvalidMetadata(f"Metadata {name} is missing a `version` field!")
         depends = d.get("depends", {})
-        return cls(name=name, author=author, version=PackageVersion.from_str(version), depends=depends)
+        des = d.get("description", "")
+        return cls(name=name, author=author, version=PackageVersion.from_str(version), depends=depends, description=des)
     
     @classmethod
     def from_package(cls, package: str):
         pack = packageutils.locate_package(package)
-
-        with zipfile.ZipFile(pack, mode="r") as zipped:
-            return packageutils.validate_package(zipped)
+        return packageutils.validate_package(pack)
     
     @property
     def path(self):
@@ -43,9 +43,44 @@ class PackageMetadata:
     @property
     def parent(self):
         return self.path.parent
+    
+    @property
+    def cache(self):
+        return {
+            "name": self.name,
+            "author": self.author,
+            "version": str(self.version),
+            "depends": self.depends,
+            "hash": self.hash,
+            "description": self.description
+        }
+
+    @property
+    def full_cache(self):
+        x=self.cache.copy()
+        x.update({"versions": [str(s) for s in self.versions]})
+        return x
+    
     def __post_init__(self):
         self.name = other.beautify_name(self.name)
 
+    
+    @property
+    def hash(self):
+        if not hasattr(self, "__cached_hash"):
+            import hashlib
+            if self.path.exists():
+                self.__cached_hash = hashlib.md5(self.path.read_bytes()).digest().hex()
+            else:
+                self.__cached_hash = 0
+        return self.__cached_hash
+
+    @property
+    def versions(self) -> list[PackageVersion]:
+        vers = []
+        for z in self.parent.glob("*.zip"):
+            vers.append(PackageVersion.from_str(z.stem))
+        return vers
 class Package:
     def __init__(self, package: str, version: str | PackageVersion | None = None):
         if isinstance(version, str):
