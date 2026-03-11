@@ -28,6 +28,7 @@ class PackageMetadata:
             raise exceptions.InvalidMetadata(f"Metadata {name} is missing a `version` field!")
         depends = d.get("depends", {})
         return cls(name=name, author=author, version=PackageVersion.from_str(version), depends=depends)
+    
     @classmethod
     def from_package(cls, package: str):
         pack = packageutils.locate_package(package)
@@ -35,8 +36,16 @@ class PackageMetadata:
         with zipfile.ZipFile(pack, mode="r") as zipped:
             return packageutils.validate_package(zipped)
     
+    @property
+    def path(self):
+        return config.PACKAGES / self.name / (str(self.version)+".zip")
+    
+    @property
+    def parent(self):
+        return self.path.parent
     def __post_init__(self):
         self.name = other.beautify_name(self.name)
+
 class Package:
     def __init__(self, package: str, version: str | PackageVersion | None = None):
         if isinstance(version, str):
@@ -76,9 +85,15 @@ class Package:
                 watermark_file = tmpfolder / "WATERMARK"
                 watermark_file.write_text(labels.WATERMARK)
 
+                
                 files.zipfolder(tmpfolder, zip_path)
-                shutil.copyfile(zip_path, Path(config.PACKAGES/ f"{other.beautify_name(meta.name)}-{str(meta.version)}.zip"))
+                meta.parent.mkdir(exist_ok=True)
+                shutil.copyfile(zip_path, meta.path)
         packageutils.generate_cache()
+
+    @classmethod
+    def search(cls, package_name: str, package_version: str):
+        pass
 
     @property
     def version(self) -> PackageVersion:

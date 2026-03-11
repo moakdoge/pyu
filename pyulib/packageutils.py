@@ -12,7 +12,7 @@ from . import config, exceptions
 def generate_cache():
     data = {}
 
-    for file in config.PACKAGES.glob("*.zip"):
+    for file in config.PACKAGES.rglob("*.zip"):
         meta = validate_package(file)
         data[file.name] = {
             "name": meta.name,
@@ -123,32 +123,30 @@ def find_depends(package: str, ver_prov: PackageVersion | None = None):
         dps.update(find_depends(lib, version)) # type: ignore
     return dps
 
+def latest(pkg):
+    versions = []
+
+    for file in (config.PACKAGES/pkg).iterdir():
+        if file.suffix == ".zip":
+            versions.append(file.stem)
+
+    return max(versions, key=lambda v: tuple(map(int, v.split("."))))
+
 def locate_package(package_name: str, version: PackageVersion | None = None) -> Path:
-    cached = load_cache()
-    newest: tuple[str, PackageVersion] | None = None
-
-    for zipped, data in cached.items():
-        if data["name"] != package_name:
-            continue
-
-        contents = data.get("version")
-        if not contents:
-            raise exceptions.PackageCorrupted("Missing version field!")
-
-        v = PackageVersion.from_str(contents)
-
-        if version is not None:
-            if v == version:
-                return config.PACKAGES / zipped
-            continue
-
-        if newest is None or v > newest[1]:
-            newest = (zipped, v)
-
-    if newest is None:
+    #first, attempt to find a folder
+    base = (config.PACKAGES / package_name)
+    if not base.exists():
         raise exceptions.PackageNotFound(package_name)
 
-    return config.PACKAGES / newest[0]
+    #supply newest if version doesnt exist
+    if version is None:
+        version = latest(package_name)
+    #then look for version
+    v=(base / (str(version)+".zip"))
+    if v.exists():
+        return v
+    raise exceptions.PackageNotFound(package_name)
+
 
 
 
