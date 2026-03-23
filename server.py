@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
+from pyulib.metadata import PackageMetadata, Package
 from pyulib import exceptions, files, metadata, other, config
 from pyulib.version import PackageVersion
 
@@ -36,14 +37,22 @@ async def upload_package(file: UploadFile = File(...)):
             if size > config.MAX_UNCOMPRESSED_SIZE:
                 raise HTTPException(status_code=400, detail=f"Uncompresses to {config.units.num_to_unit(size)} (Max: {config.units.num_to_unit(config.MAX_UNCOMPRESSED_SIZE)})!")
             files.extractall(z, files.vpath(m))
-        metadata.Package.generate_package(Path(m))
+        Package.generate_package(Path(m))
 
     return 200
 
 @app.get("/packages/list")
-async def package_list(amount: int | None = Query(default=100), offset: int | None = Query(default=0)):
-    c = metadata.packageutils.load_cache()
-    return c[offset:amount]
+async def package_list(amount: int = Query(default=100), offset: int  = Query(default=0)):
+    c = metadata.packageutils.load_cache()   
+
+    packs = list(set(_["name"] for _ in c.values()))
+    new_dict = []
+    for _, p in enumerate(packs[offset:amount]):
+        met = PackageMetadata.from_package(p)
+        x=met.full_cache.copy()
+        new_dict.append(x)
+
+    return JSONResponse(content=new_dict, status_code=200)
 
 
 
@@ -54,38 +63,23 @@ async def download(
     depends: bool = True,
     version: str | None = None,
     ):
-    if version is None:
-        version = metadata.packageutils.latest(name)
-    n=f"{name}.zip"
 
-    metadata.packageutils.generate_cache()
-    print("version:", repr(version))
-    pack = metadata.Package(name, version)
+
+    package_version: PackageVersion | None = PackageVersion.from_str(version or metadata.packageutils.latest(name))
+    result_name=f"{name}.zip"
+    met = PackageMetadata.from_package(name, package_version)
     if depends:
-        with tempfile.TemporaryDirectory() as tmpfl:
-            
-            dps = metadata.packageutils.find_depends(pack.name, pack.version)
-            dps.update({pack.name: str(pack.version)})
-            zip_path, n = metadata.packageutils.zip_packages(dps) # type: ignore
-            data = zip_path
-        headers={
-            "Content-Disposition": 'attachment; filename="%s"' % n
-        }
-        return Response(content=data, media_type="application/zip", headers=headers)
-        
-       # return FileResponse(path=str(zip_path.absolute()), media_type="application/zip", filename=zip_path.name)
+        dps = met.depends.copy()
+        dps.update({met.name: str(met.version)})
+        zip_path, result_name = metadata.packageutils.zip_packages(dps) # type: ignore
+        return Response(content=zip_path, media_type="application/zip", headers=other.generate_file_header(result_name))
     else:
-        headers={
-            "Content-Disposition": 'attachment; filename="%s"' % n
-        }
-        return Response(content=pack._file.read_bytes(), media_type="application/zip", headers=headers)
+        return Response(content=met.path.read_bytes(), media_type="application/zip", headers=other.generate_file_header(result_name))
 
 @app.get("/packages/{name}/{ver}")
 @app.get("/packages/{name}")
 async def cache(name: str, ver: str | None = None):
-    c = PackageVersion.from_str(ver) if ver is not None else None
-    pack = metadata.packageutils.locate_package(name, c)
-    meta = metadata.packageutils.validate_package(pack)
+    meta = PackageMetadata.from_package(name, PackageVersion.from_str(ver) if ver else None)
     return meta.full_cache
 
 @app.exception_handler(exceptions.BaseHTTPException)
@@ -105,4 +99,4 @@ async def handle_http(request, exc: HTTPException):
 if __name__ == "__main__":
     import uvicorn
     metadata.cache()
-    uvicorn.run(app, host=os.environ.get("HOST", "0.0.0.0"), port=int(os.environ.get("PORT", "5000")))
+    uvicorn.run(app, host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "5000")))

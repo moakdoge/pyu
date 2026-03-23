@@ -18,6 +18,8 @@ class PackageMetadata:
     author: str
     depends: dict[str, str] = field(default_factory=dict)
     description: str = ""
+    language: str = ""
+
     @classmethod
     def from_dict(cls, d: dict):
         name = d.get("name", None)
@@ -29,12 +31,13 @@ class PackageMetadata:
             raise exceptions.InvalidMetadata(f"Metadata {name} is missing a `version` field!")
         depends = d.get("depends", {})
         des = d.get("description", "")
-        return cls(name=name, author=author, version=PackageVersion.from_str(version), depends=depends, description=des)
+        l = d.get("language", "")
+        return cls(name=name, author=author, version=PackageVersion.from_str(version), depends=depends, description=des, language=l)
     
     @classmethod
-    def from_package(cls, package: str):
-        pack = packageutils.locate_package(package)
-        return packageutils.validate_package(pack)
+    def from_package(cls, package: str, version: PackageVersion | None = None):
+        pack = packageutils.locate_package(package, version=version)
+        return packageutils.get_metadata(pack)
     
     @property
     def path(self):
@@ -52,7 +55,8 @@ class PackageMetadata:
             "version": str(self.version),
             "depends": self.depends,
             "hash": self.hash,
-            "description": self.description
+            "description": self.description,
+            "language": self.language
         }
 
     @property
@@ -90,7 +94,7 @@ class Package:
         self._file = file
 
         with files.ZipExtractor(file_name=file.name, file_bytes=file.read_bytes()) as zipped:
-            self._metadata = packageutils.validate_package(file)
+            self._metadata = packageutils.get_metadata(file)
             self._version = self._metadata.version
     
     @classmethod
@@ -110,7 +114,7 @@ class Package:
             
             with files.tempfile("/tmp") as f:
                 zip_path = f.name + ".zip"
-                meta = packageutils.validate_package(folder)
+                meta = packageutils.get_metadata(folder)
                 try:
                     packageutils.locate_package(meta.name, meta.version)
                     raise exceptions.PackageExists(meta.name, str(meta.version))

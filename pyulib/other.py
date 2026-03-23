@@ -19,4 +19,9 @@ def hash(data: Any) -> str:
     d = str(data).encode()
     h = zlib.crc32(d)
     return f"{h:08x}"
+
+def generate_file_header(file_name: str):
+    return{
+            "Content-Disposition": 'attachment; filename="%s"' % file_name
+        }
     

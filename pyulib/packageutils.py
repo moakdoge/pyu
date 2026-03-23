@@ -12,7 +12,7 @@ from . import config, exceptions
 def generate_cache():
     data = {}
     for file in config.PACKAGES.rglob("*.zip"):
-        meta = validate_package(file)
+        meta = get_metadata(file)
         data[file.name] = meta.cache
     with open(config.PACKAGES / "cache.json", "w") as f:
         f.write(json.dumps(data, indent=2))
@@ -24,7 +24,7 @@ def load_cache():
     with open(config.PACKAGES / "cache.json", "r") as file:
         return json.loads(file.read())
     
-def validate_package(folder: Path | str | zipfile.ZipFile):
+def get_metadata(folder: Path | str | zipfile.ZipFile):
     from .metadata import PackageMetadata
     _tmp = None
     metadata = None
@@ -124,7 +124,7 @@ def latest(pkg):
         if file.suffix == ".zip":
             versions.append(file.stem)
 
-    return max(versions, key=lambda v: tuple(map(int, v.split("."))))
+    return max(versions, key=lambda v: tuple(map(int, PackageVersion.from_str(v).tuple)))
 
 def locate_package(package_name: str, version: PackageVersion | None = None) -> Path:
     #first, attempt to find a folder

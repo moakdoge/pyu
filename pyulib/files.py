@@ -87,6 +87,7 @@ def extract_zip(path: str | Path | None) -> Path | None:
         return None
     
 def vpath(path: Path | str, base: Path | str | None = None):
+    '''Makes a path safe'''
     if isinstance(path, str):   path = Path(path)
     if isinstance(base, str):   base = Path(base)
     if base is None:
