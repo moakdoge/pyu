@@ -1,4 +1,6 @@
+import asyncio
 import tempfile
+import threading
 import zipfile
 
 from pyulib import exceptions
@@ -85,6 +87,14 @@ class PackageMetadata:
         for z in self.parent.glob("*.zip"):
             vers.append(PackageVersion.from_str(z.stem))
         return vers
+    
+
+_LOCKED = {}
+def lock_package(pack: str):
+    if pack not in _LOCKED:
+        _LOCKED[pack] = threading.Lock()
+    return _LOCKED[pack]
+    
 class Package:
     def __init__(self, package: str, version: str | PackageVersion | None = None):
         if isinstance(version, str):
@@ -93,10 +103,15 @@ class Package:
         file = packageutils.locate_package(package, version=version)
         self._file = file
 
-        with files.ZipExtractor(file_name=file.name, file_bytes=file.read_bytes()) as zipped:
-            self._metadata = packageutils.get_metadata(file)
-            self._version = self._metadata.version
+        with self.lock():
+            with files.ZipExtractor(file_name=file.name, file_bytes=file.read_bytes()) as zipped:
+                self._metadata = packageutils.get_metadata(file)
+                self._version = self._metadata.version
     
+    @classmethod
+    async def agenerate_package(cls, folder: Path):
+        return asyncio.to_thread(cls.generate_package, folder)
+     
     @classmethod
     def generate_package(cls, folder: Path):
         from . import packageutils
@@ -124,15 +139,20 @@ class Package:
                 watermark_file = tmpfolder / "WATERMARK"
                 watermark_file.write_text(labels.WATERMARK)
 
-                
-                files.zipfolder(tmpfolder, zip_path)
-                meta.parent.mkdir(exist_ok=True)
-                shutil.copyfile(zip_path, meta.path)
+                with lock_package(meta.name):
+                    files.zipfolder(tmpfolder, zip_path)
+                    meta.parent.mkdir(exist_ok=True)
+                    shutil.move(zip_path, meta.path)
         packageutils.generate_cache()
-
-    @classmethod
-    def search(cls, package_name: str, package_version: str):
-        pass
+    
+    def lock(self):
+        return lock_package(self.name)
+    
+    async def alock(self):
+        def s():
+            with lock_package(self.name):
+                pass
+        return await asyncio.to_thread(s)
 
     @property
     def version(self) -> PackageVersion:

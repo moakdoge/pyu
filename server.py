@@ -37,7 +37,7 @@ async def upload_package(file: UploadFile = File(...)):
             if size > config.MAX_UNCOMPRESSED_SIZE:
                 raise HTTPException(status_code=400, detail=f"Uncompresses to {config.units.num_to_unit(size)} (Max: {config.units.num_to_unit(config.MAX_UNCOMPRESSED_SIZE)})!")
             files.extractall(z, files.vpath(m))
-        Package.generate_package(Path(m))
+        await Package.agenerate_package(Path(m))
 
     return 200
 
