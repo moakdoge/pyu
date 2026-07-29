@@ -110,7 +110,7 @@ class Package:
     
     @classmethod
     async def agenerate_package(cls, folder: Path):
-        return asyncio.to_thread(cls.generate_package, folder)
+        return await asyncio.to_thread(cls.generate_package, folder)
      
     @classmethod
     def generate_package(cls, folder: Path):
